@@ -129,7 +129,7 @@
             }
             function adminDelete(id){
                 const arr = loadBookings();
-                const idx = arr.findIndex(b=>b.createdAt===id);
+                const idx = arr.findindex(b=>b.createdAt===id);
                 if(idx===-1) return;
                 if(!confirm('Delete this booking?')) return;
                 arr.splice(idx,1);
@@ -140,7 +140,7 @@
 
             function adminEdit(id){
                 const arr = loadBookings();
-                const idx = arr.findIndex(b=>b.createdAt===id);
+                const idx = arr.findindex(b=>b.createdAt===id);
                 if(idx===-1) return alert('Booking not found');
                 const b = arr[idx];
                 const newTime = prompt('Edit time (choose from available slots, HH:MM):', b.time);
