@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Conroy Personal Training Booking</title>
+        <link rel="stylesheet" href="booking.css">
+    </head>
+    <body>
+        <a href="cptHome.html">← Back</a>
+        <h1>Book a Session</h1>
+        <p class="meta">Choose a date, pick an available time slot, and add a short note.</p>
+
+        <div class="row">
+            <div>
+                <label for="date">Date</label><br />
+                <input id="date" type="date" />
+            </div>
+        </div>
+
+        <div>
+            <label>Time Slots</label>
+            <div id="slots" class="slots" aria-live="polite"></div>
+        </div>
+
+
+        <div style="margin-top:12px">
+            <label for="name">Your name <span style="color:#c00">*</span></label><br />
+            <input id="name" placeholder="Jane Doe" />
+        </div>
+
+        <div style="margin-top:8px">
+            <label for="phone">Phone</label><br />
+            <input id="phone" type="tel" placeholder="e.g. +1 555 555 5555" />
+        </div>
+
+        <div style="margin-top:8px">
+            <label for="email">Email</label><br />
+            <input id="email" type="email" placeholder="you@example.com" />
+        </div>
+
+        <div style="margin-top:8px">
+            <label for="note">Note <span style="color:#c00">*</span></label><br />
+            <textarea id="note" placeholder="Brief note about your goal or any preferences"></textarea>
+        </div>
+
+        <div style="margin-top:12px">
+            <button id="submit">Book Selected Slot</button>
+        </div>
+
+        <div id="message"></div>
+
+        <div class="bookings-list" id="bookingsList"></div>
+
+        <div style="margin-top:16px;text-align:right">
+            <button id="adminBtn" style="background:#fff;border:1px solid #888;padding:6px 10px;border-radius:6px;cursor:pointer">Admin: Show notes</button>
+        </div>
+
+        <script>
+            const slotsEl = document.getElementById('slots');
+            const dateInput = document.getElementById('date');
+            const submitBtn = document.getElementById('submit');
+            const messageEl = document.getElementById('message');
+            const bookingsList = document.getElementById('bookingsList');
+            const nameInput = document.getElementById('name');
+            const noteInput = document.getElementById('note');
+            const phoneInput = document.getElementById('phone');
+            const emailInput = document.getElementById('email');
+            const adminBtn = document.getElementById('adminBtn');
+
+            // WARNING: client-side password is not secure. This protects notes only against casual viewers on the public page.
+            const ADMIN_PASSWORD = 'Ac071036912!@#';
+            let isAdmin = false;
+
+            // Email settings: either configure EmailJS (client-side) or a server webhook to actually send emails.
+            // Option A (EmailJS): sign up at https://www.emailjs.com/, create a service and template, then fill these values.
+            const EMAILJS_USERID = 'KNmOe6lBClFga0xHR'; // e.g. 'user_xxx'
+            const EMAILJS_SERVICEID = 'service_4bh5i6c'; // e.g. 'service_xxx'
+            const EMAILJS_TEMPLATEID = 'service_4bh5i6c'; // e.g. 'template_xxx'
+
+            // Option B (Webhook): POST booking JSON to this URL; your server should send the email to conroypersonaltrainer@gmail.com
+            const EMAIL_WEBHOOK_URL = ''; // e.g. 'https://your-server.example.com/send-email'
+
+            // If using EmailJS, include their SDK (only loaded when configured)
+            function loadEmailJSSDK(){
+                if(document.getElementById('emailjs-sdk')) return Promise.resolve();
+                return new Promise((res)=>{
+                    const s = document.createElement('script');
+                    s.id = 'emailjs-sdk';
+                    s.src = 'https://cdn.jsdelivr.net/npm/emailjs-com@2/dist/email.min.js';
+                    s.onload = ()=>{if(window.emailjs && EMAILJS_USERID) window.emailjs.init(EMAILJS_USERID);res();};
+                    document.head.appendChild(s);
+                });
+            }
+
+            const SLOTS = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'];
+            let selected = null;
+
+            function escapeHTML(s){
+                return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,"&#39;");
+            }
+
+            function todayISO(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)}
+
+            function loadBookings(){try{return JSON.parse(localStorage.getItem('cpt_bookings')||'[]')}catch(e){return []}}
+            function saveBooking(b){const arr=loadBookings();arr.push(b);localStorage.setItem('cpt_bookings',JSON.stringify(arr))}
+
+            function bookedTimesFor(date){return loadBookings().filter(b=>b.date===date).map(b=>b.time)}
+
+            function renderSlots(){
+                slotsEl.innerHTML='';
+                selected = null;
+                const date = dateInput.value;
+                if(!date){slotsEl.innerHTML='<small>Please pick a date.</small>';return}
+                const booked = bookedTimesFor(date);
+                SLOTS.forEach(t=>{
+                    const btn = document.createElement('button');
+                    btn.type='button';btn.className='slot';btn.textContent=t;
+                    if(booked.includes(t)){btn.classList.add('disabled');btn.disabled=true}
+                    btn.addEventListener('click',()=>{
+                        if(btn.classList.contains('disabled'))return;
+                        document.querySelectorAll('.slot').forEach(s=>s.classList.remove('selected'));
+                        btn.classList.add('selected');
+                        selected = t;
+                    });
+                    slotsEl.appendChild(btn);
+                })
+                renderBookingsList(date);
+            }
+            function adminDelete(id){
+                const arr = loadBookings();
+                const idx = arr.findIndex(b=>b.createdAt===id);
+                if(idx===-1) return;
+                if(!confirm('Delete this booking?')) return;
+                arr.splice(idx,1);
+                localStorage.setItem('cpt_bookings', JSON.stringify(arr));
+                messageEl.innerHTML = '<div class="confirm">Booking removed.</div>';
+                renderSlots();
+            }
+
+            function adminEdit(id){
+                const arr = loadBookings();
+                const idx = arr.findIndex(b=>b.createdAt===id);
+                if(idx===-1) return alert('Booking not found');
+                const b = arr[idx];
+                const newTime = prompt('Edit time (choose from available slots, HH:MM):', b.time);
+                if(!newTime) return;
+                if(!SLOTS.includes(newTime)){alert('Invalid time selected.');return}
+                // check conflict excluding this booking
+                const otherBooked = loadBookings().filter(x=>x.date===b.date && x.createdAt!==b.createdAt).map(x=>x.time);
+                if(otherBooked.includes(newTime)){alert('That time is already booked.');return}
+                const newName = prompt('Edit name:', b.name) || '';
+                const newPhone = prompt('Edit phone (optional):', b.phone) || '';
+                const newEmail = prompt('Edit email (optional):', b.email) || '';
+                const newNote = prompt('Edit note:', b.note) || '';
+                if(!newName.trim()){alert('Name is required.');return}
+                if(!newNote.trim()){alert('Note is required.');return}
+                if(!newPhone.trim() && !newEmail.trim()){alert('Provide a phone or email.');return}
+                if(newEmail.trim()){
+                    const re = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\\.,;:\s@\"]+\.)+[^<>()[\]\\.,;:\s@\"]{2,})$/i;
+                    if(!re.test(newEmail)){alert('Invalid email.');return}
+                }
+                arr[idx] = Object.assign({}, b, {time:newTime, name:newName.trim(), phone:newPhone.trim(), email:newEmail.trim(), note:newNote.trim()});
+                localStorage.setItem('cpt_bookings', JSON.stringify(arr));
+                messageEl.innerHTML = '<div class="confirm">Booking updated.</div>';
+                renderSlots();
+            }
+
+            function renderBookingsList(date){
+                const items = loadBookings().filter(b=>b.date===date);
+                if(!date){bookingsList.innerHTML='';return}
+                if(items.length===0){bookingsList.innerHTML='<small>No bookings for this date.</small>';return}
+                if(isAdmin){
+                    bookingsList.innerHTML = '<strong>Existing bookings (admin view):</strong>';
+                    const ul = document.createElement('ul');
+                    items.forEach(i=>{
+                        const li = document.createElement('li');
+                        const contact = (i.phone||i.email) ? '(contact: ' + escapeHTML(i.phone||'') + (i.phone && i.email ? '/' : '') + escapeHTML(i.email||'') + ')' : '';
+                        const created = '<small style="color:#666">(created: ' + new Date(i.createdAt).toLocaleString() + ')</small>';
+                        li.innerHTML = escapeHTML(i.time) + ' — ' + escapeHTML(i.name||'Anonymous') + (contact ? ' <small style="color:#666">' + contact + '</small>' : '') + ' ' + created;
+                        if(i.note){
+                            const noteDiv = document.createElement('div');
+                            noteDiv.style.marginLeft = '12px';
+                            noteDiv.style.color = '#111';
+                            noteDiv.textContent = 'Note: ' + i.note;
+                            li.appendChild(noteDiv);
+                        }
+                        const editBtn = document.createElement('button');
+                        editBtn.textContent = 'Edit';
+                        editBtn.style.marginLeft = '8px';
+                        editBtn.addEventListener('click', ()=> adminEdit(i.createdAt));
+                        const delBtn = document.createElement('button');
+                        delBtn.textContent = 'Delete';
+                        delBtn.style.marginLeft = '6px';
+                        delBtn.addEventListener('click', ()=> adminDelete(i.createdAt));
+                        li.appendChild(editBtn);
+                        li.appendChild(delBtn);
+                        ul.appendChild(li);
+                    });
+                    bookingsList.appendChild(ul);
+                } else {
+                    // Non-admins see only the reserved times to protect client privacy
+                    bookingsList.innerHTML = '<strong>Existing bookings:</strong><ul>' + items.map(i => '<li>' + escapeHTML(i.time) + '</li>').join('') + '</ul>';
+                }
+            }
+
+            dateInput.addEventListener('change',renderSlots);
+
+            adminBtn.addEventListener('click',()=>{
+                if(isAdmin){ // hide admin view
+                    isAdmin = false;
+                    adminBtn.textContent = 'Admin: Show notes';
+                    renderSlots();
+                    return;
+                }
+                const attempt = prompt('Enter admin password to view notes:');
+                if(!attempt) return;
+                if(attempt === ADMIN_PASSWORD){
+                    isAdmin = true;
+                    adminBtn.textContent = 'Admin: Hide notes';
+                    renderSlots();
+                } else {
+                    alert('Incorrect password');
+                }
+            });
+
+            submitBtn.addEventListener('click',()=>{
+                const date = dateInput.value;
+                if(!date){messageEl.innerHTML='<div class="confirm">Please select a date.</div>';return}
+                if(!selected){messageEl.innerHTML='<div class="confirm">Please pick a time slot.</div>';return}
+                const name = nameInput.value.trim();
+                const note = noteInput.value.trim();
+                const phone = phoneInput.value.trim();
+                const email = emailInput.value.trim();
+
+                // validations: name and note required
+                if(!name){messageEl.innerHTML='<div class="confirm">Please enter your name.</div>';return}
+                if(!note){messageEl.innerHTML='<div class="confirm">Please enter a note.</div>';return}
+
+                // require either phone or email
+                if(!phone && !email){messageEl.innerHTML='<div class="confirm">Please provide a phone number or an email address.</div>';return}
+                // basic email format check when provided
+                if(email){
+                    const re = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\\.,;:\s@\"]+\.)+[^<>()[\]\\.,;:\s@\"]{2,})$/i;
+                    if(!re.test(email)){messageEl.innerHTML='<div class="confirm">Please enter a valid email address.</div>';return}
+                }
+
+                // double-check slot still available
+                const booked = bookedTimesFor(date);
+                if(booked.includes(selected)){messageEl.innerHTML='<div class="confirm">Sorry — that slot was just booked. Choose another.</div>';renderSlots();return}
+                const booking = {date, time: selected, name, note, phone, email, createdAt:new Date().toISOString()};
+                saveBooking(booking);
+                // attempt to send email notification
+                sendBookingEmail(booking).catch(e=>{console.warn('Email send failed', e)});
+                messageEl.innerHTML='<div class="confirm">Booked '+date+' @ '+selected+'. Thank you!</div>';
+                // clear inputs (except date)
+                nameInput.value='';noteInput.value='';phoneInput.value='';emailInput.value='';
+                renderSlots();
+            });
+
+            // initialize
+            dateInput.value = todayISO();
+            renderSlots();
+
+            // Sends booking details either via EmailJS or to a webhook that sends the email.
+            async function sendBookingEmail(booking){
+                // build plain text body
+                const body = `New booking:\nDate: ${booking.date}\nTime: ${booking.time}\nName: ${booking.name}\nPhone: ${booking.phone || 'N/A'}\nEmail: ${booking.email || 'N/A'}\nNote: ${booking.note || ''}`;
+                // Try EmailJS if configured
+                if(EMAILJS_USERID && EMAILJS_SERVICEID && EMAILJS_TEMPLATEID){
+                    await loadEmailJSSDK();
+                    if(!window.emailjs) throw new Error('EmailJS SDK not available');
+                    return window.emailjs.send(EMAILJS_SERVICEID, EMAILJS_TEMPLATEID, {
+                        to_email: 'conroypersonaltrainer@gmail.com',
+                        subject: `New booking ${booking.date} @ ${booking.time}`,
+                        message: body
+                    });
+                }
+                // Otherwise POST to webhook if configured
+                if(EMAIL_WEBHOOK_URL){
+                    return fetch(EMAIL_WEBHOOK_URL, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:'conroypersonaltrainer@gmail.com',subject:`New booking ${booking.date} @ ${booking.time}`,text:body,booking})});
+                }
+                // No email configured: quietly resolve
+                return Promise.resolve();
+            }
+        </script>
+    </body>
+</html>

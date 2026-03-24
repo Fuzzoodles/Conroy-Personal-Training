@@ -1,0 +1,53 @@
+/* Modern dark-blue / light-grey theme for booking page */
+:root{
+  --bg:#f3f6f9; /* light grey */
+  --panel:#ffffff;
+  --accent:#0b4fa0; /* dark blue accent */
+  --accent-2:#0a3b75;
+  --muted:#6b7280;
+  --success:#2f9e44;
+  --radius:10px;
+  --max-width:760px;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+
+main{width:100%;max-width:var(--max-width)}
+
+h1{margin:0 0 6px 0;font-size:26px;color:var(--accent-2)}
+.meta{color:var(--muted);margin-bottom:12px}
+
+.card{background:var(--panel);border-radius:var(--radius);padding:18px;box-shadow:0 6px 18px rgba(15,23,42,0.06)}
+.row{display:flex;gap:12px;align-items:center}
+
+label{display:block;font-weight:600;margin-bottom:6px}
+input[type="date"],input[type="text"],input[type="tel"],input[type="email"],textarea{
+  width:100%;padding:10px;border:1px solid #d7dbe0;border-radius:8px;font-size:14px;outline:none;background:#fff;color:var(--accent-2)
+}
+textarea{min-height:96px}
+
+button{background:var(--accent);color:#fff;border:0;padding:10px 14px;border-radius:8px;cursor:pointer;font-weight:600}
+button:hover{background:var(--accent-2)}
+
+.slots{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.slot{padding:8px 12px;border-radius:8px;border:1px solid transparent;background:#eef7fb;color:var(--accent-2);cursor:pointer}
+.slot:hover{transform:translateY(-2px);box-shadow:0 6px 12px rgba(11,63,145,0.06)}
+.slot.disabled{opacity:.45;cursor:not-allowed;background:#f3f4f6;border-color:transparent}
+.slot.selected{background:var(--accent);color:#fff}
+
+.confirm{margin-top:12px;padding:12px;background:rgba(47,158,68,0.08);border-left:4px solid var(--success);border-radius:6px}
+.bookings-list{margin-top:12px}
+.bookings-list ul{padding-left:18px}
+.bookings-list li{margin:8px 0;padding:8px;border-radius:8px;background:#fbfdff;border:1px solid #eef4fb}
+
+.small-muted{color:var(--muted);font-size:13px}
+
+/* admin button styling overrides inline background */
+#adminBtn{background:transparent;border:1px solid #cbd5e1;color:var(--accent-2);padding:8px 12px;border-radius:8px}
+#adminBtn:hover{background:#fff}
+
+@media (max-width:560px){
+  .row{flex-direction:column;align-items:stretch}
+  button{width:100%}
+}
