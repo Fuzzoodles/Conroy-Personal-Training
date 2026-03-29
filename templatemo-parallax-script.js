@@ -184,18 +184,24 @@ https://templatemo.com/tm-612-parallax-starter
     if (contactForm) {
         contactForm.addEventListener('submit', function (e) {
             e.preventDefault();
-            alert('Thank you for your message! We will get back to you soon.');
-            contactForm.reset();
+
+            const templateParams = {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                message: document.getElementById('message').value
+            };
+
+            emailjs.send('service_cnpn61i', 'template_c47312c', templateParams)
+                .then(function (response) {
+                    console.log('SUCCESS!', response.status, response.text);
+                    alert('Thank you for your message! We will get back to you soon.');
+                    contactForm.reset();
+                }, function (error) {
+                    console.log('FAILED...', error);
+                    alert('There was an error sending your message. Please try again.');
+                });
         });
     }
 
-    function sendMail(){
-        let parms={
-            name:document.getElementById("name").value,
-            email:document.getElementById("email").value,
-            message:document.getElementById("message").value
-        }
-        emailjs.send("service_cnpn61i", "template_c47312c", parms);
-    }
 
 })();
