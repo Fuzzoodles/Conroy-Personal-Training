@@ -195,7 +195,7 @@ https://templatemo.com/tm-612-parallax-starter
             email:document.getElementById("email").value,
             message:document.getElementById("message").value
         }
-        emailjs.send("service_cnpn61i", "service_cnpn61i", parms);
+        emailjs.send("service_cnpn61i", "template_c47312c", parms);
     }
 
 })();
